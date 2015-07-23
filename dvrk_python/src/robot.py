@@ -50,7 +50,7 @@ Desired positions might differ from the physical positions due to
 `forces (gravity, friction, ...) <https://en.wikipedia.org/wiki/Force>`_ applied on the robot.  When
 implementing an incremental move, one should always use the last
 desired position.  If one needs to track the robot, it is better to
-use the current position.
+use the current position. wdndwjnwdjn
 
 Robot API
 =========
