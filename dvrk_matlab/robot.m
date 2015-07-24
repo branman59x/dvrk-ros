@@ -8,6 +8,7 @@ classdef robot < handle
         position_cartesian_desired_subscriber
         position_joint_desired_subscriber
         position_goal_joint_publisher
+        position_goal_cartesian_publisher
     end
     
     % values set by this class, can be read by others
@@ -15,6 +16,7 @@ classdef robot < handle
         robot_state
         position_cartesian_desired
         position_joint_desired
+        joint_number
     end
     
     methods
@@ -54,6 +56,10 @@ classdef robot < handle
             % position goal joint
             topic = strcat('/dvrk/', self.robot_name, '/set_position_goal_joint');
             self.position_goal_joint_publisher = rospublisher(topic, rostype.sensor_msgs_JointState);
+            
+            %position goal cartesian
+            topic = strcat('/dvrk/', self.robot_name, '/set_position_goal_cartesian');
+            self.position_goal_cartesian_publisher = rospublisher(topic, rostype.geometry_msgs_Pose);
         end
         
         function delete(self)
@@ -84,6 +90,10 @@ classdef robot < handle
             message = rosmessage(self.robot_state_publisher);
             message.Data = state_as_string;
             send(self.robot_state_publisher, message);
+        end
+        
+        function get_joint_number(self)
+            self.joint_number = length(self.position_joint_desired);
         end
         
         function home(self)
@@ -136,24 +146,77 @@ classdef robot < handle
             end
         end
         
-       % function open_gripper(self)
-       %     self.set_state('DVRK_POSITION_GOAL_JOINT');
-       %     jointState = rosmessage(self.position_goal_joint_publisher);
-       %     jointState.Position = self.position_joint_desired;
-       %     jointState.Position(7) = pi/4;
-       %     send(self.position_goal_joint_publisher, jointState);
-       % end
+       function open_gripper(self)
+           self.set_state('DVRK_POSITION_GOAL_JOINT');
+           jointState = rosmessage(self.position_goal_joint_publisher);
+           jointState.Position = self.position_joint_desired;
+           self.get_joint_number();
+           jointState.Position(self.joint_number) = pi/4;
+           send(self.position_goal_joint_publisher, jointState);
+       end
         
-       % function close_gripper(self)
-       %     self.set_state('DVRK_POSITION_GOAL_JOINT');
-       %     jointState = rosmessage(self.position_goal_joint_publisher);
-       %     jointState.Position = self.position_joint_desired;
-       %     jointState.Position(7) = 0.0;
-       %     send(self.position_goal_joint_publisher, jointState);
-       % end
+       function close_gripper(self)
+           self.set_state('DVRK_POSITION_GOAL_JOINT');
+           jointState = rosmessage(self.position_goal_joint_publisher);
+           jointState.Position = self.position_joint_desired;
+           self.get_joint_number();
+           jointState.Position(self.joint_number) = 0.0;
+           send(self.position_goal_joint_publisher, jointState);
+       end
         
-        function delta_cartesian_move(self,value,index)
-            
-        end 
+        function delta_cartesian_move_list(self,value)
+            if isfloat(value) && length(value) == 3
+                self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
+                matrix = self.position_cartesian_desired;
+                matrix(1,4) = matrix(1,4) + value(1);
+                matrix(2,4) = matrix(2,4) + value(2);
+                matrix(3,4) = matrix(3,4) + value(3);
+
+                pose = rosmessage(self.position_goal_cartesian_publisher);
+                pose.Position.X = matrix(1,4);
+                pose.Position.Y = matrix(2,4);
+                pose.Position.Z = matrix(3,4);
+               
+                rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
+                            matrix(2,1) matrix(2,2) matrix(2,3) 0;...
+                            matrix(3,1) matrix(3,2) matrix(3,3) 0;...
+                            0           0           0           1];
+                quat = tform2quat(rotation);
+                pose.Orientation.W = -quat(1);
+                pose.Orientation.X = -quat(2);
+                pose.Orientation.Y = -quat(3);
+                pose.Orientation.Z = -quat(4);
+
+                send(self.position_goal_cartesian_publisher, pose);
+            end
+        end
+        
+        function cartesian_move_list(self,value)
+            if isfloat(value) && length(value) == 3
+                self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
+                matrix = self.position_cartesian_desired;
+                matrix(1,4) = value(1);
+                matrix(2,4) = value(2);
+                matrix(3,4) = value(3);
+                
+                pose = rosmessage(self.position_goal_cartesian_publisher);
+                pose.Position.X = matrix(1,4);
+                pose.Position.Y = matrix(2,4);
+                pose.Position.Z = matrix(3,4);
+               
+                rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
+                            matrix(2,1) matrix(2,2) matrix(2,3) 0;...
+                            matrix(3,1) matrix(3,2) matrix(3,3) 0;...
+                            0           0           0           1];
+                quat = tform2quat(rotation);
+                pose.Orientation.W = -quat(1);
+                pose.Orientation.X = -quat(2);
+                pose.Orientation.Y = -quat(3);
+                pose.Orientation.Z = -quat(4);
+                
+                send(self.position_goal_cartesian_publisher, pose);
+            end
+        end
+        
     end
 end
