@@ -28,14 +28,14 @@ classdef robot < handle
         function self = robot(name)
             self.robot_name = name;
             
-            % ----------- subscribers 
+            % ----------- subscribers
             % state
             topic = strcat('/dvrk/', self.robot_name, '/robot_state');
             self.robot_state_subscriber = ...
                 rossubscriber(topic, rostype.std_msgs_String);
             self.robot_state_subscriber.NewMessageFcn = ...
                 @(sub, data)self.robot_state_callback(sub, data);
-
+            
             % position cartesian desired
             self.position_cartesian_desired = [];
             topic = strcat('/dvrk/', self.robot_name, '/position_cartesian_desired');
@@ -72,7 +72,7 @@ classdef robot < handle
             % state
             topic = strcat('/dvrk/', self.robot_name, '/set_robot_state');
             self.robot_state_publisher = rospublisher(topic, rostype.std_msgs_String);
-
+            
             % position goal joint
             topic = strcat('/dvrk/', self.robot_name, '/set_position_goal_joint');
             self.position_goal_joint_publisher = rospublisher(topic, rostype.sensor_msgs_JointState);
@@ -83,11 +83,11 @@ classdef robot < handle
         end
         
         function delete(self)
-           % hack to disable callbacks from subscribers
-           % there might be a better way to remove the subscriber itself
-           self.robot_state_subscriber.NewMessageFcn = @(a, b, c)[];
-           self.position_cartesian_desired_subscriber.NewMessageFcn = @(a, b, c)[];
-           self.position_joint_desired_subscriber.NewMessageFcn = @(a, b, c)[];
+            % hack to disable callbacks from subscribers
+            % there might be a better way to remove the subscriber itself
+            self.robot_state_subscriber.NewMessageFcn = @(a, b, c)[];
+            self.position_cartesian_desired_subscriber.NewMessageFcn = @(a, b, c)[];
+            self.position_joint_desired_subscriber.NewMessageFcn = @(a, b, c)[];
         end
         
         function robot_state_callback(self, subscriber, data)
@@ -162,7 +162,7 @@ classdef robot < handle
             else
                 disp('Parameters must be arrays of the same length')
             end
-           
+            
         end
         
         function joint_move_single(self, value, index)
@@ -185,37 +185,49 @@ classdef robot < handle
             end
         end
         
-       function open_gripper(self)
-           self.set_state('DVRK_POSITION_GOAL_JOINT');
-           jointState = rosmessage(self.position_goal_joint_publisher);
-           jointState.Position = self.position_joint_desired;
-           self.get_joint_number();
-           jointState.Position(self.joint_number) = pi/4;
-           send(self.position_goal_joint_publisher, jointState);
-       end
+        function open_gripper(self)
+            self.set_state('DVRK_POSITION_GOAL_JOINT');
+            jointState = rosmessage(self.position_goal_joint_publisher);
+            jointState.Position = self.position_joint_desired;
+            self.get_joint_number();
+            jointState.Position(self.joint_number) = pi/4;
+            send(self.position_goal_joint_publisher, jointState);
+        end
         
-       function close_gripper(self)
-           self.set_state('DVRK_POSITION_GOAL_JOINT');
-           jointState = rosmessage(self.position_goal_joint_publisher);
-           jointState.Position = self.position_joint_desired;
-           self.get_joint_number();
-           jointState.Position(self.joint_number) = 0.0;
-           send(self.position_goal_joint_publisher, jointState);
-       end
+        function close_gripper(self)
+            self.set_state('DVRK_POSITION_GOAL_JOINT');
+            jointState = rosmessage(self.position_goal_joint_publisher);
+            jointState.Position = self.position_joint_desired;
+            self.get_joint_number();
+            jointState.Position(self.joint_number) = 0.0;
+            send(self.position_goal_joint_publisher, jointState);
+        end
+        
+        function dvrk_insert_tool(self)
+            if self.position_joint_desired(3) < 0.1
+                self.set_state('DVRK_POSITION_GOAL_JOINT');
+                jointState = rosmessage(self.position_goal_joint_publisher);
+                jointState.Position = self.position_joint_desired;
+                jointState.Position(3) = 0.15;
+                send(self.position_goal_joint_publisher, jointState);                
+            end
+        end
         
         function delta_cartesian_move_list(self,value)
             if isfloat(value) && length(value) == 3
+                self.dvrk_insert_tool();
+                pause(1.0);
                 self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
                 matrix = self.position_cartesian_desired;
                 matrix(1,4) = matrix(1,4) + value(1);
                 matrix(2,4) = matrix(2,4) + value(2);
                 matrix(3,4) = matrix(3,4) + value(3);
-
+                
                 pose = rosmessage(self.position_goal_cartesian_publisher);
                 pose.Position.X = matrix(1,4);
                 pose.Position.Y = matrix(2,4);
                 pose.Position.Z = matrix(3,4);
-               
+                
                 rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
                             matrix(2,1) matrix(2,2) matrix(2,3) 0;...
                             matrix(3,1) matrix(3,2) matrix(3,3) 0;...
@@ -225,13 +237,15 @@ classdef robot < handle
                 pose.Orientation.X = -quat(2);
                 pose.Orientation.Y = -quat(3);
                 pose.Orientation.Z = -quat(4);
-
+                
                 send(self.position_goal_cartesian_publisher, pose);
             end
         end
         
         function cartesian_move_list(self,value)
             if isfloat(value) && length(value) == 3
+                self.dvrk_insert_tool();
+                pause(1.0);
                 self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
                 matrix = self.position_cartesian_desired;
                 matrix(1,4) = value(1);
@@ -242,7 +256,7 @@ classdef robot < handle
                 pose.Position.X = matrix(1,4);
                 pose.Position.Y = matrix(2,4);
                 pose.Position.Z = matrix(3,4);
-               
+                
                 rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
                             matrix(2,1) matrix(2,2) matrix(2,3) 0;...
                             matrix(3,1) matrix(3,2) matrix(3,3) 0;...
