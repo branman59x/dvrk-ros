@@ -47,7 +47,7 @@ classdef robot < handle
             % position cartesian current
             self.position_cartesian_current = [];
             topic = strcat('/dvrk/', self.robot_name, '/position_cartesian_current');
-            sef.position_cartesian_current_subscriber = ...
+            self.position_cartesian_current_subscriber = ...
                 rossubscriber (topic, rostype.geometry_msgs_Pose);
             self.position_cartesian_current_subscriber.NewMessageFcn = ...
                 @(sub, data)self.position_cartesian_current_callback(sub, data);
@@ -103,7 +103,6 @@ classdef robot < handle
         end
         
         function position_cartesian_current_callback(self, subscriber, pose)
-            disp('HEYOOOOOOO')
             % convert idiotic ROS message type to homogeneous transforms
             position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
             orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
