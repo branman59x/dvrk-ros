@@ -95,7 +95,7 @@ classdef robot < handle
         end
         
         function position_cartesian_desired_callback(self, subscriber, pose)
-            % convert idiotic ROS message type to homogeneous transforms
+            % convert idiotic ROS message type to homogeneous transforms+
             position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
             orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
             % combine position and orientation
@@ -151,7 +151,7 @@ classdef robot < handle
         end
         
         function delta_joint_move_list(self, value, index)
-            if isfloat(value) && isfloat(index) && length(value) == length(index)
+            if isfloat(value) && isfloat(index) && length(value)position_goal_cartesian_publisher == length(index)
                 self.set_state('DVRK_POSITION_GOAL_JOINT');
                 jointState = rosmessage(self.position_goal_joint_publisher);
                 jointState.Position = self.position_joint_desired;
@@ -209,24 +209,20 @@ classdef robot < handle
                 jointState = rosmessage(self.position_goal_joint_publisher);
                 jointState.Position = self.position_joint_desired;
                 jointState.Position(3) = 0.15;
-                send(self.position_goal_joint_publisher, jointState);                
+                send(self.position_goal_joint_publisher, jointState);
+                pause(1.0);
             end
         end
         
-        function delta_cartesian_move_list(self,value)
+        function delta_cartesian_move_translation(self,value)
             if isfloat(value) && length(value) == 3
                 self.dvrk_insert_tool();
-                pause(1.0);
                 self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
-                matrix = self.position_cartesian_desired;
-                matrix(1,4) = matrix(1,4) + value(1);
-                matrix(2,4) = matrix(2,4) + value(2);
-                matrix(3,4) = matrix(3,4) + value(3);
-                
                 pose = rosmessage(self.position_goal_cartesian_publisher);
-                pose.Position.X = matrix(1,4);
-                pose.Position.Y = matrix(2,4);
-                pose.Position.Z = matrix(3,4);
+                matrix = self.position_cartesian_desired;
+                pose.Position.X = matrix(1,4) + value(1);
+                pose.Position.Y = matrix(2,4) + value(2);
+                pose.Position.Z = matrix(3,4) + value(3);
                 
                 rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
                             matrix(2,1) matrix(2,2) matrix(2,3) 0;...
@@ -242,20 +238,15 @@ classdef robot < handle
             end
         end
         
-        function cartesian_move_list(self,value)
+        function cartesian_move_translation(self,value)
             if isfloat(value) && length(value) == 3
                 self.dvrk_insert_tool();
-                pause(1.0);
                 self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
-                matrix = self.position_cartesian_desired;
-                matrix(1,4) = value(1);
-                matrix(2,4) = value(2);
-                matrix(3,4) = value(3);
-                
                 pose = rosmessage(self.position_goal_cartesian_publisher);
-                pose.Position.X = matrix(1,4);
-                pose.Position.Y = matrix(2,4);
-                pose.Position.Z = matrix(3,4);
+                matrix = self.position_cartesian_desired;
+                pose.Position.X = value(1);
+                pose.Position.Y = value(2);
+                pose.Position.Z = value(3);
                 
                 rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
                             matrix(2,1) matrix(2,2) matrix(2,3) 0;...
@@ -268,6 +259,39 @@ classdef robot < handle
                 pose.Orientation.Z = -quat(4);
                 
                 send(self.position_goal_cartesian_publisher, pose);
+            end
+        end
+
+        function delta_cartesian_move_rotation(self,value,axis)
+            if isfloat(value) && length(value) == 1 && ischar(axis)
+                self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
+                rotationMatrix = [];
+                if lower(axis) == 'x'
+                    rotationMatrix = [1 0 0; 0 cos(value) -sin(value); 0 sin(value) cos(value)];
+                elseif lower(axis) == 'y' 
+                    rotationMatrix = [cos(value) 0 sin(value); 0 1 0; -sin(value) 0 cos(value)];
+                elseif lower(axis) == 'z'
+                    rotationMatrix = [cos(value) -sin(value) 0; sin(value) cos(value) 0; 0 0 1];
+                end
+                rotationMatrix = rotm2tform(rotationMatrix);
+                newMatrix = self.position_cartesian_desired * rotationMatrix;
+                quat = tform2quat(newMatrix);
+                pose = rosmessage(self.position_goal_cartesian_publisher);
+                pose.Orientation.W = -quat(1);
+                pose.Orientation.X = -quat(2);
+                pose.Orientation.Y = -quat(3);
+                pose.Orientation.Z = -quat(4);
+                pose.Position.X = self.position_cartesian_desired(1,4);
+                pose.Position.Y = self.position_cartesian_desired(2,4);
+                pose.Position.Z = self.position_cartesian_desired(3,4);
+                send(self.position_goal_cartesian_publisher, pose);
+            end
+        end
+        
+                
+        function cartesian_move_rotation(self,value, axis)
+            if isfloat(value) && length(value) == 1 && ischar(axis)
+                
             end
         end
         
