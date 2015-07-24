@@ -6,7 +6,9 @@ classdef robot < handle
         robot_state_subscriber
         robot_state_publisher
         position_cartesian_desired_subscriber
+        position_cartesian_current_subscriber
         position_joint_desired_subscriber
+        position_joint_current_subscriber
         position_goal_joint_publisher
         position_goal_cartesian_publisher
     end
@@ -15,7 +17,9 @@ classdef robot < handle
     properties (SetAccess = protected)
         robot_state
         position_cartesian_desired
+        position_cartesian_current
         position_joint_desired
+        position_joint_current
         joint_number
     end
     
@@ -40,6 +44,14 @@ classdef robot < handle
             self.position_cartesian_desired_subscriber.NewMessageFcn = ...
                 @(sub, data)self.position_cartesian_desired_callback(sub, data);
             
+            % position cartesian current
+            self.position_cartesian_current = [];
+            topic = strcat('/dvrk/', self.robot_name, '/position_cartesian_current');
+            sef.position_cartesian_current_subscriber = ...
+                rossubscriber (topic, rostype.geometry_msgs_Pose);
+            self.position_cartesian_current_subscriber.NewMessageFcn = ...
+                @(sub, data)self.position_cartesian_current_callback(sub, data);
+            
             % position joint desired
             self.position_joint_desired = [];
             topic = strcat('/dvrk/', self.robot_name, '/position_joint_desired');
@@ -47,6 +59,14 @@ classdef robot < handle
                 rossubscriber(topic, rostype.sensor_msgs_JointState);
             self.position_joint_desired_subscriber.NewMessageFcn = ...
                 @(sub, data)self.position_joint_desired_callback(sub, data);
+            
+            % position joint current
+            self.position_joint_current = [];
+            topic = strcat('/dvrk/', self.robot_name, '/position_joint_current');
+            self.position_joint_current_subscriber = ...
+                rossubscriber(topic, rostype.sensor_msgs_JointState);
+            self.position_joint_current_subscriber.NewMessageFcn = ...
+                @(sub, data)self.position_joint_current_callback(sub, data);
             
             % ----------- publishers
             % state
@@ -82,8 +102,21 @@ classdef robot < handle
             self.position_cartesian_desired = position * orientation;
         end
         
+        function position_cartesian_current_callback(self, subscriber, pose)
+            disp('HEYOOOOOOO')
+            % convert idiotic ROS message type to homogeneous transforms
+            position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
+            orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
+            % combine position and orientation
+            self.position_cartesian_current = position * orientation;
+        end
+        
         function position_joint_desired_callback(self, subscriber, jointState)
             self.position_joint_desired = jointState.Position;
+        end
+        
+        function position_joint_current_callback(self, subscriber, jointState)
+            self.position_joint_current = jointState.Position;
         end
         
         function set_state(self, state_as_string)
@@ -100,6 +133,13 @@ classdef robot < handle
             self.set_state('Home');
             message = rosmessage(self.robot_state_publisher);
             message.Data = 'Home';
+            send(self.robot_state_publisher, message);
+        end
+        
+        function shutdown(self)
+            self.set_state('DVRK_UNINITIALIZED');
+            message = rosmessage(self.robot_state_publisher);
+            message.Data = 'DVRK_UNINITIALIZED';
             send(self.robot_state_publisher, message);
         end
         
