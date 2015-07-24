@@ -291,7 +291,26 @@ classdef robot < handle
                 
         function cartesian_move_rotation(self,value, axis)
             if isfloat(value) && length(value) == 1 && ischar(axis)
-                
+                self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
+                rotationMatrix = [];
+                if lower(axis) == 'x'
+                    rotationMatrix = [1 0 0; 0 cos(value) -sin(value); 0 sin(value) cos(value)];
+                elseif lower(axis) == 'y' 
+                    rotationMatrix = [cos(value) 0 sin(value); 0 1 0; -sin(value) 0 cos(value)];
+                elseif lower(axis) == 'z'
+                    rotationMatrix = [cos(value) -sin(value) 0; sin(value) cos(value) 0; 0 0 1];
+                end
+                rotationMatrix = rotm2tform(rotationMatrix);
+                quat = tform2quat(rotationMatrix);
+                pose = rosmessage(self.position_goal_cartesian_publisher);
+                pose.Orientation.W = -quat(1);
+                pose.Orientation.X = -quat(2);
+                pose.Orientation.Y = -quat(3);
+                pose.Orientation.Z = -quat(4);
+                pose.Position.X = self.position_cartesian_desired(1,4);
+                pose.Position.Y = self.position_cartesian_desired(2,4);
+                pose.Position.Z = self.position_cartesian_desired(3,4);
+                send(self.position_goal_cartesian_publisher, pose);
             end
         end
         
