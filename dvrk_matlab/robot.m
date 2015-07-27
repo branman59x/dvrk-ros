@@ -97,7 +97,7 @@ classdef robot < handle
         function position_cartesian_desired_callback(self, subscriber, pose)
             % convert idiotic ROS message type to homogeneous transforms+
             position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
-            orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
+            orientation = quat2tform([pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W]);
             % combine position and orientation
             self.position_cartesian_desired = position * orientation;
         end
@@ -105,7 +105,7 @@ classdef robot < handle
         function position_cartesian_current_callback(self, subscriber, pose)
             % convert idiotic ROS message type to homogeneous transforms
             position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
-            orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
+            orientation = quat2tform([pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W]);
             % combine position and orientation
             self.position_cartesian_current = position * orientation;
         end
@@ -151,7 +151,7 @@ classdef robot < handle
         end
         
         function delta_joint_move_list(self, value, index)
-            if isfloat(value) && isfloat(index) && length(value)position_goal_cartesian_publisher == length(index)
+            if isfloat(value) && isfloat(index) && length(value) == length(index)
                 self.set_state('DVRK_POSITION_GOAL_JOINT');
                 jointState = rosmessage(self.position_goal_joint_publisher);
                 jointState.Position = self.position_joint_desired;
@@ -229,10 +229,10 @@ classdef robot < handle
                             matrix(3,1) matrix(3,2) matrix(3,3) 0;...
                             0           0           0           1];
                 quat = tform2quat(rotation);
-                pose.Orientation.W = -quat(1);
-                pose.Orientation.X = -quat(2);
-                pose.Orientation.Y = -quat(3);
-                pose.Orientation.Z = -quat(4);
+                pose.Orientation.X = quat(1);
+                pose.Orientation.Y = quat(2);
+                pose.Orientation.Z = quat(3);
+                pose.Orientation.W = quat(4);
                 
                 send(self.position_goal_cartesian_publisher, pose);
             end
@@ -253,10 +253,10 @@ classdef robot < handle
                             matrix(3,1) matrix(3,2) matrix(3,3) 0;...
                             0           0           0           1];
                 quat = tform2quat(rotation);
-                pose.Orientation.W = -quat(1);
-                pose.Orientation.X = -quat(2);
-                pose.Orientation.Y = -quat(3);
-                pose.Orientation.Z = -quat(4);
+                pose.Orientation.X = quat(1);
+                pose.Orientation.Y = quat(2);
+                pose.Orientation.Z = quat(3);
+                pose.Orientation.W = quat(4);
                 
                 send(self.position_goal_cartesian_publisher, pose);
             end
@@ -277,10 +277,10 @@ classdef robot < handle
                 newMatrix = self.position_cartesian_desired * rotationMatrix;
                 quat = tform2quat(newMatrix);
                 pose = rosmessage(self.position_goal_cartesian_publisher);
-                pose.Orientation.W = -quat(1);
-                pose.Orientation.X = -quat(2);
-                pose.Orientation.Y = -quat(3);
-                pose.Orientation.Z = -quat(4);
+                pose.Orientation.X = quat(1);
+                pose.Orientation.Y = quat(2);
+                pose.Orientation.Z = quat(3);
+                pose.Orientation.W = quat(4);
                 pose.Position.X = self.position_cartesian_desired(1,4);
                 pose.Position.Y = self.position_cartesian_desired(2,4);
                 pose.Position.Z = self.position_cartesian_desired(3,4);
@@ -303,10 +303,10 @@ classdef robot < handle
                 rotationMatrix = rotm2tform(rotationMatrix);
                 quat = tform2quat(rotationMatrix);
                 pose = rosmessage(self.position_goal_cartesian_publisher);
-                pose.Orientation.W = -quat(1);
-                pose.Orientation.X = -quat(2);
-                pose.Orientation.Y = -quat(3);
-                pose.Orientation.Z = -quat(4);
+                pose.Orientation.X = quat(1);
+                pose.Orientation.Y = quat(2);
+                pose.Orientation.Z = quat(3);
+                pose.Orientation.W = quat(4);
                 pose.Position.X = self.position_cartesian_desired(1,4);
                 pose.Position.Y = self.position_cartesian_desired(2,4);
                 pose.Position.Z = self.position_cartesian_desired(3,4);
