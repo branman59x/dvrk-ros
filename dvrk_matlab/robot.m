@@ -94,7 +94,7 @@ classdef robot < handle
         end
         
         function position_cartesian_desired_callback(self, subscriber, pose)
-            % convert idiotic ROS message type to homogeneous transforms+
+            % convert ROS message type to homogeneous transforms+
             position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
             orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
             % combine position and orientation
@@ -102,7 +102,7 @@ classdef robot < handle
         end
         
         function position_cartesian_current_callback(self, subscriber, pose)
-            % convert idiotic ROS message type to homogeneous transforms
+            % convert ROS message type to homogeneous transforms
             position = trvec2tform([pose.Position.X, pose.Position.Y, pose.Position.Z]);
             orientation = quat2tform([pose.Orientation.W, pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z]);
             % combine position and orientation
@@ -138,11 +138,13 @@ classdef robot < handle
         end
         
         function delta_joint_move_single(self, value, index)
-            self.set_state('DVRK_POSITION_GOAL_JOINT');
-            jointState = rosmessage(self.position_goal_joint_publisher);
-            jointState.Position = self.position_joint_desired;
-            jointState.Position(index) = jointState.Position(index) + value;
-            send(self.position_goal_joint_publisher, jointState);
+            if isfloat(value) && isfloat(index) && length(index) == 1 && length(value) == 1
+                self.set_state('DVRK_POSITION_GOAL_JOINT');
+                jointState = rosmessage(self.position_goal_joint_publisher);
+                jointState.Position = self.position_joint_desired;
+                jointState.Position(index) = jointState.Position(index) + value;
+                send(self.position_goal_joint_publisher, jointState);
+            end
         end
         
         function delta_joint_move_list(self, value, index)
@@ -154,18 +156,17 @@ classdef robot < handle
                     jointState.Position(index(i)) = jointState.Position(index(i)) + value(i);
                 end
                 send(self.position_goal_joint_publisher, jointState);
-            else
-                disp('Parameters must be arrays of the same length')
             end
-            
         end
         
         function joint_move_single(self, value, index)
-            self.set_state('DVRK_POSITION_GOAL_JOINT');
-            jointState = rosmessage(self.position_goal_joint_publisher);
-            jointState.Position = self.position_joint_desired;
-            jointState.Position(index) = value;
-            send(self.position_goal_joint_publisher, jointState);
+            if isfloat(value) && isfloat(index) && length(index) == 1 && length(value) == 1
+                self.set_state('DVRK_POSITION_GOAL_JOINT');
+                jointState = rosmessage(self.position_goal_joint_publisher);
+                jointState.Position = self.position_joint_desired;
+                jointState.Position(index) = value;
+                send(self.position_goal_joint_publisher, jointState);
+            end
         end
         
         function joint_move_list(self, value, index)
@@ -181,11 +182,13 @@ classdef robot < handle
         end
         
         function open_gripper(self)
-            self.set_state('DVRK_POSITION_GOAL_JOINT');
-            jointState = rosmessage(self.position_goal_joint_publisher);
-            jointState.Position = self.position_joint_desired;
-            jointState.Position(self.get_joint_number()) = pi/4;
-            send(self.position_goal_joint_publisher, jointState);
+            if self.position_joint_desired(3) >= 0.0290
+                self.set_state('DVRK_POSITION_GOAL_JOINT');
+                jointState = rosmessage(self.position_goal_joint_publisher);
+                jointState.Position = self.position_joint_desired;
+                jointState.Position(self.get_joint_number()) = pi/4;
+                send(self.position_goal_joint_publisher, jointState);
+            end   
         end
         
         function close_gripper(self)
@@ -207,14 +210,14 @@ classdef robot < handle
                 pose.Position.Z = matrix(3,4) + value(3);
                 
                 rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
-                    matrix(2,1) matrix(2,2) matrix(2,3) 0;...
-                    matrix(3,1) matrix(3,2) matrix(3,3) 0;...
-                    0           0           0           1];
+                            matrix(2,1) matrix(2,2) matrix(2,3) 0;...
+                            matrix(3,1) matrix(3,2) matrix(3,3) 0;...
+                            0           0           0           1];
                 quat = tform2quat(rotation);
+                pose.Orientation.W = quat(1);
                 pose.Orientation.X = quat(2);
                 pose.Orientation.Y = quat(3);
                 pose.Orientation.Z = quat(4);
-                pose.Orientation.W = quat(1);
                 send(self.position_goal_cartesian_publisher, pose);
             end
         end
@@ -230,21 +233,22 @@ classdef robot < handle
                 pose.Position.Z = value(3);
                 
                 rotation = [matrix(1,1) matrix(1,2) matrix(1,3) 0;...
-                    matrix(2,1) matrix(2,2) matrix(2,3) 0;...
-                    matrix(3,1) matrix(3,2) matrix(3,3) 0;...
-                    0           0           0           1];
+                            matrix(2,1) matrix(2,2) matrix(2,3) 0;...
+                            matrix(3,1) matrix(3,2) matrix(3,3) 0;...
+                            0           0           0           1];
+                
                 quat = tform2quat(rotation);
+                pose.Orientation.W = quat(1);
                 pose.Orientation.X = quat(2);
                 pose.Orientation.Y = quat(3);
                 pose.Orientation.Z = quat(4);
-                pose.Orientation.W = quat(1);
                 
                 send(self.position_goal_cartesian_publisher, pose);
             end
         end
         
         function delta_cartesian_move_rotation(self,value,axis)
-            if isfloat(value) && length(value) == 1 && ischar(axis)
+            if isfloat(value) && length(value) == 1 && ischar(axis) && length(axis) == 1 && (lower(axis) == 'x' || lower(axis) == 'y'|| lower(axis) == 'z') 
                 self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
                 rotationMatrix = [];
                 if lower(axis) == 'x'
@@ -271,7 +275,7 @@ classdef robot < handle
         
         
         function cartesian_move_rotation(self,value, axis)
-            if isfloat(value) && length(value) == 1 && ischar(axis)
+            if isfloat(value) && length(value) == 1 && ischar(axis) && length(axis) == 1 && (lower(axis) == 'x' || lower(axis) == 'y'|| lower(axis) == 'z')
                 self.set_state('DVRK_POSITION_GOAL_CARTESIAN');
                 rotationMatrix = [];
                 if lower(axis) == 'x'
